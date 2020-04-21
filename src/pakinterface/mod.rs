@@ -4,10 +4,16 @@ use crate::util;
 pub const RESOURCE_MAGIC: u32 = util::u32_from_str("RES1");
 pub const TYPE_PACKAGE: [u8; 0xC] = [0x70, 0x61, 0x6B, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
+#[derive(Clone, Debug, Default)]
+pub struct RawDataInfo {
+    pub offset: u64,
+    pub size: usize 
+}
+
 #[derive(Clone, Debug)]
 pub enum ResourceContents {
     None,
-    RawData(Vec<u8>),
+    RawData(RawDataInfo),
     Node(ResourceNode)
 }
 
@@ -34,7 +40,7 @@ pub struct ResourceNode {
     pub children: Vec<ResourceChild>
 }
 
-fn read_node(mut file : &File) ->io::Result<ResourceNode> {
+fn read_node(mut file : &File, shared_hack : bool) ->io::Result<ResourceNode> {
     // children are relative to node base
     let node_base = file.stream_position()?;
 
@@ -87,19 +93,18 @@ fn read_node(mut file : &File) ->io::Result<ResourceNode> {
             continue;
         }
 
-        file.seek(SeekFrom::Start(node_base + child.offset))?;
-        if node.resource_type == TYPE_PACKAGE {
-            child.contents = ResourceContents::Node(read_node(file)?);
+        let offset = node_base + child.offset;
+        if node.resource_type == TYPE_PACKAGE && !shared_hack {
+            file.seek(SeekFrom::Start(offset))?;
+            child.contents = ResourceContents::Node(read_node(file, shared_hack)?);
         } else {
-            let mut data = vec![0u8; child.size as usize];
-            file.read_exact(&mut data)?;
-            child.contents = ResourceContents::RawData(data);
+            child.contents = ResourceContents::RawData(RawDataInfo{ offset: offset, size: child.size as usize });
         }
     }
 
     Ok(node)
 }
 
-pub fn read_file(file : File) -> io::Result<ResourceNode> {
-    read_node(&file)
+pub fn read_file(file : &File, shared_hack : bool) -> io::Result<ResourceNode> {
+    read_node(file, shared_hack)
 }
