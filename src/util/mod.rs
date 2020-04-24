@@ -35,116 +35,43 @@ pub fn read_u16(mut file: &File) -> io::Result<u16> {
 pub fn read_u8(mut file: &File) -> io::Result<u8> {
     let mut buffer: [u8; 1] = Default::default();
     file.read(&mut buffer)?;
-    Ok(buffer[0])
+    Ok(u8::from_le_bytes(buffer))
 }
 
-// shamelessly taken from https://github.com/camden-smallwood/zeta/blob/master/blam/src/datatypes/static_array.rs
-// thanks @camden-smallwood
-use std::{cmp, fmt, ops::{Index, IndexMut, Range, RangeFull}};
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct StaticArray<T, const N: usize>([T; N]);
-
-impl<T, const N: usize> StaticArray<T, N> {
-    pub fn len(self) -> usize {
-        N
-    }
+pub fn write_u128(mut file: &File, value: u128) -> io::Result<()> {
+    let buffer = u128::to_le_bytes(value);
+    file.write_all(&buffer)
 }
 
-impl<T: Default + Copy, const N: usize> Default for StaticArray<T, N> {
-    fn default() -> Self {
-        Self ([Default::default(); {N}])
-    }
+pub fn write_u64(mut file: &File, value: u64) -> io::Result<()> {
+    let buffer = u64::to_le_bytes(value);
+    file.write_all(&buffer)
 }
 
-impl<T, const N: usize> Index<usize> for StaticArray<T, N> {
-    type Output = T;
-    #[inline]
-    fn index(&self, index: usize) -> &T {
-        &self.0[index]
-    }
+pub fn write_u32(mut file: &File, value: u32) -> io::Result<()> {
+    let buffer = u32::to_le_bytes(value);
+    file.write_all(&buffer)
 }
 
-impl<T, const N: usize> IndexMut<usize> for StaticArray<T, N> {
-    #[inline]
-    fn index_mut(&mut self, index: usize) -> &mut T {
-        &mut self.0[index]
-    }
+pub fn write_u16(mut file: &File, value: u16) -> io::Result<()> {
+    let buffer = u16::to_le_bytes(value);
+    file.write_all(&buffer)
 }
 
-impl<T: fmt::Debug, const N: usize> fmt::Debug for StaticArray<T, N> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0[..].fmt(f)
-    }
+pub fn write_u8(mut file: &File, value: u8) -> io::Result<()> {
+    let buffer = u8::to_le_bytes(value);
+    file.write_all(&buffer)
 }
 
-impl<T, const N: usize> Index<Range<usize>> for StaticArray<T, N> {
-    type Output = [T];
-    #[inline]
-    fn index(&self, index: Range<usize>) -> &[T] {
-        &self.0[index]
+pub fn copy_data(mut input_file : &File, mut output_file : &File, size : usize) -> io::Result<()> {
+    const BUFFER_SIZE: usize = 0x40000;
+    let mut bytes_left = size;
+    while bytes_left > 0 {
+        let bytes_to_read = std::cmp::min(bytes_left, BUFFER_SIZE);
+        let mut buffer = [0u8; BUFFER_SIZE];
+        input_file.read_exact(&mut buffer[..bytes_to_read])?;
+        output_file.write_all(&buffer[..bytes_to_read])?;
+        bytes_left -= bytes_to_read;
     }
-}
-
-impl<T, const N: usize> IndexMut<Range<usize>> for StaticArray<T, N> {
-    #[inline]
-    fn index_mut(&mut self, index: Range<usize>) -> &mut [T] {
-        &mut self.0[index]
-    }
-}
-
-impl<T, const N: usize> Index<RangeFull> for StaticArray<T, N> {
-    type Output = [T];
-    #[inline]
-    fn index(&self, _index: RangeFull) -> &[T] {
-        &self.0[..]
-    }
-}
-
-impl<T, const N: usize> IndexMut<RangeFull> for StaticArray<T, N> {
-    #[inline]
-    fn index_mut(&mut self, _index: RangeFull) -> &mut [T] {
-        &mut self.0[..]
-    }
-}
-
-impl<T: PartialEq, const N: usize> PartialEq for StaticArray<T, N> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0[..] == other.0[..]
-    }
-    
-    #[inline]
-    fn ne(&self, other: &Self) -> bool {
-        self.0[..] != other.0[..]
-    }
-}
-
-impl<T: PartialOrd, const N: usize> PartialOrd for StaticArray<T, N> {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        PartialOrd::partial_cmp(&&self.0[..], &&other.0[..])
-    }
-
-    #[inline]
-    fn lt(&self, other: &Self) -> bool {
-        PartialOrd::lt(&&self.0[..], &&other.0[..])
-    }
-
-    #[inline]
-    fn le(&self, other: &Self) -> bool {
-        PartialOrd::le(&&self.0[..], &&other.0[..])
-    }
-
-    #[inline]
-    fn ge(&self, other: &Self) -> bool {
-        PartialOrd::ge(&&self.0[..], &&other.0[..])
-    }
-
-    #[inline]
-    fn gt(&self, other: &Self) -> bool {
-        PartialOrd::gt(&&self.0[..], &&other.0[..])
-    }
+    Ok(())
 }
