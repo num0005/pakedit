@@ -21,6 +21,28 @@ fn dump_csv(node: &pakinterface::ResourceNode, depth: usize) {
 }
 
 #[allow(dead_code)]
+fn dump_resource_info(node: &pakinterface::ResourceNode, depth: usize) {
+    for child in node.children() {
+        let extra: String;
+        match child.contents() {
+            pakinterface::ResourceType::Node(child_node) =>
+            {
+                dump_resource_info(child_node, depth + 1);
+                extra = format!("{:?}", child_node.header().meta_data());
+            },
+            pakinterface::ResourceType::Resource(header) => 
+            {
+                extra = format!("{:?}", header.meta_data());
+            }
+            pakinterface::ResourceType::Link(_) => {continue},
+            _ => {continue},
+        }
+
+        println!("{}{}, {} {}", "- ".repeat(depth), child.name(), child.offset(), extra);
+    }
+}
+
+#[allow(dead_code)]
 fn dump_data(node: &pakinterface::ResourceNode, path: String) -> io::Result<()> {
     for child in node.children() {
         let file_name = child.name().rsplit(">\\").next().unwrap().rsplit(":").next().unwrap();
@@ -29,7 +51,7 @@ fn dump_data(node: &pakinterface::ResourceNode, path: String) -> io::Result<()> 
             {
                 dump_data(child_node, path.clone() + file_name.to_string().split(".").next().unwrap() + "\\")?;
             },
-            pakinterface::ResourceType::Data =>
+            pakinterface::ResourceType::Resource(_) | pakinterface::ResourceType::Data =>
             {
                 let file_path_string = path.clone() + file_name;
                 let file_path = std::path::Path::new(&file_path_string);
@@ -43,6 +65,7 @@ fn dump_data(node: &pakinterface::ResourceNode, path: String) -> io::Result<()> 
     Ok(())
 }
 
+#[allow(dead_code)]
 fn replace_script(node: &mut pakinterface::ResourceNode) {
     const FILE: &str = "ingame_cinematic_mgr.ssl";
 
@@ -70,24 +93,26 @@ fn replace_script(node: &mut pakinterface::ResourceNode) {
 
 #[allow(dead_code)]
 fn replacement_test() {
-    let input_file = File::open("cache_decompressed_og.pak").unwrap();
-    let mut interface = pakinterface::PakInterface::open(input_file, false).unwrap();
-    replace_script(interface.get_root_node_mut());
-    interface.save(File::create("cache_decompressed.pak").unwrap()).unwrap();
-    std::process::Command::new("paktool.exe").arg("cache_decompressed.pak").spawn().unwrap();
+    env::set_current_dir("H:\\SteamLibrary\\steamapps\\common\\Halo The Master Chief Collection Flighting\\halo2\\preload\\paks").unwrap();
+    let input_file = File::open("01b_spacestation_og.pak").unwrap();
+    let mut interface = pakinterface::PakInterface::open(input_file).unwrap();
+    //replace_script(interface.get_root_node_mut());
+    //interface.save(File::create("01b_spacestation_decompressed.pak").unwrap()).unwrap();
+    //std::process::Command::new("paktool.exe").arg("01b_spacestation_decompressed.pak").spawn().unwrap();
     std::process::exit(0);
 }
 
 fn main() -> io::Result<()> {
-    //replacement_test();
+    replacement_test();
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         panic!("Bad input");
     }
     let input_file = File::open(args[1].clone())?;
-    let interface = pakinterface::PakInterface::open(input_file, args[1].contains("shared"))?;
+    let interface = pakinterface::PakInterface::open(input_file)?;
 
-    dump_csv(interface.get_root_node(), 0);
+    //dump_csv(interface.get_root_node(), 0);
+    dump_resource_info(interface.get_root_node(), 0);
     //dump_data(interface.get_root_node(), env::current_dir()?.to_str().unwrap().to_string() + "\\dump\\")?;
     Ok(())
 }
