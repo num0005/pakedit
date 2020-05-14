@@ -27,6 +27,17 @@ impl Default for ResourceType {
     }
 }
 
+impl std::fmt::Display for ResourceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Self::Data => write!(f, "Raw Data"),
+            Self::Link(_) => write!(f, "Link"),
+            Self::Node(_) => write!(f, "Node"),
+            Self::Resource(_) => write!(f, "Resource Data"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
 enum NodeModifiedState {
     /// No change
@@ -249,7 +260,7 @@ fn copy_child_data<T: BinaryStream>(input: &Rc<RefCell<UncompressedFile>>, outpu
     input_file.copy_data(output, child.size as usize)?;
     Ok(())
 }
-use std::collections::HashSet;
+
 impl ResourceNode {
     pub fn children_mut(&mut self) -> &mut[ResourceChild] {
         &mut self.children[..]
@@ -287,15 +298,11 @@ impl ResourceNode {
         }
     }
 
-    fn set_stream_ref(&mut self, stream: Weak<RefCell<UncompressedFile>>, set: &mut HashSet<String>) {
+    fn set_stream_ref(&mut self, stream: Weak<RefCell<UncompressedFile>>) {
         for child in &mut self.children {
             child.input_file = stream.clone();
             if let ResourceType::Node(node) = &mut child.contents {
-                set.insert(node.header.class.clone());
-                node.set_stream_ref(stream.clone(), set);
-            }
-            if let ResourceType::Resource(header) = &child.contents {
-                set.insert(header.class.clone());
+                node.set_stream_ref(stream.clone());
             }
         }
     }
@@ -482,6 +489,7 @@ impl ResourceNode {
     }
 }
 
+#[derive(Debug)]
 pub struct PakInterface {
     input_file: std::rc::Rc<RefCell<UncompressedFile>>,
     root_node: ResourceNode
@@ -503,9 +511,7 @@ impl PakInterface {
             let mut root_node = ResourceNode::read(&mut file, header_data)?;
             root_node.data_len = file.length()? - root_node.data_offset;
             let stream_ref = Rc::new(RefCell::new(file));
-            let mut set = HashSet::new();
-            root_node.set_stream_ref(Rc::downgrade(&stream_ref), &mut set);
-            println!("{:?}", set);
+            root_node.set_stream_ref(Rc::downgrade(&stream_ref));
             Ok(PakInterface { input_file: stream_ref, root_node: root_node })
         } else {
             Err(io::Error::new(io::ErrorKind::InvalidData, "Bad header"))
