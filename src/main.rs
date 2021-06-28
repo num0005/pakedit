@@ -1,6 +1,7 @@
 #![allow(incomplete_features)]
 #![feature(const_generics)]
 #![feature(seek_convenience)]
+#![feature(seek_stream_len)]
 use std::{env, fs::File, io::{self, Write, Read}, time::{Instant}};
 mod util;
 mod pakinterface;
