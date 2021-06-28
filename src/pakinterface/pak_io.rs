@@ -1,6 +1,5 @@
 use std::{io::{self, Read, Seek, SeekFrom, Write}};
 use crate::util::{BinaryStream};
-#![feature(seek_stream_len)]
 
 #[derive(Debug)]
 pub struct UncompressedFile {
